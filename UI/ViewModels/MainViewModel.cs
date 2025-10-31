@@ -11,8 +11,6 @@ namespace FLandT_laba1_ver4.UI.ViewModels
 {
     public sealed class MainViewModel : INotifyPropertyChanged
     {
-        private readonly LexRunner _lexer = new();
-
         private string _inputText = string.Empty;
         public string InputText
         {
@@ -22,7 +20,6 @@ namespace FLandT_laba1_ver4.UI.ViewModels
                 if (_inputText == value) return;
                 _inputText = value;
                 OnPropertyChanged();
-                // ВАЖНО: больше НЕ запускаем парсер здесь.
             }
         }
 
@@ -66,7 +63,6 @@ namespace FLandT_laba1_ver4.UI.ViewModels
             ClearCommand = new DelegateCommand(Clear);
             CopyReportCommand = new DelegateCommand(() => ClipboardService.SetTextSafe(ResultText));
 
-            // Начальное состояние — пустой отчёт без автоанализа
             ResultText = "Нажмите «Проверить», чтобы выполнить разбор.";
         }
 
@@ -85,22 +81,29 @@ namespace FLandT_laba1_ver4.UI.ViewModels
         private void RunCore()
         {
             RecognizedTokens.Clear();
+            FirstCount = 0;
+            SecondCount = 0;
+            IsOk = true;
 
-            var res = _lexer.Run(InputText);
+            var lexer = new LexRunner(InputText);
 
-            FirstCount = res.FirstCount;
-            SecondCount = res.SecondCount;
-            IsOk = res.IsOk;
+            while (lexer.NextToken(out var tok))
+            {
+                if (tok.Type == TokenType.BinaryWord) FirstCount++;
+                else if (tok.Type == TokenType.LetterWord) SecondCount++;
 
-            foreach (var t in res.Tokens)
-                RecognizedTokens.Add(t);
+                if (tok.Type is TokenType.Whitespace or TokenType.Comment)
+                    continue;
+
+                RecognizedTokens.Add(tok);
+            }
+
+            IsOk = !lexer.SyntaxError;
 
             var sb = new StringBuilder();
             sb.AppendLine(IsOk ? "Статус: OK" : "Статус: Ошибка");
             sb.AppendLine($"(011)*000(001)*: {FirstCount}");
             sb.AppendLine("[a,b,c,d]+ (2-3=ac): " + SecondCount);
-            if (!IsOk && !string.IsNullOrWhiteSpace(res.Message))
-                sb.AppendLine().AppendLine(res.Message);
 
             ResultText = sb.ToString();
         }
