@@ -51,8 +51,12 @@ namespace FLandT_laba1_ver4.Transliterator
             'c' => CharKind.C,
             'd' => CharKind.D,
             '#' => CharKind.Hash,
+            '[' => CharKind.LBracket,
+            ']' => CharKind.RBracket,
+            '(' => CharKind.LParen,
+            ')' => CharKind.RParen,
             '\t' or ' ' => CharKind.Whitespace,
-            '\n' => CharKind.Newline, // сюда почти не попадём (мы уже нормализуем выше)
+            '\n' => CharKind.Newline,
             _ => char.IsWhiteSpace(ch) ? CharKind.Whitespace : CharKind.Other
         };
     }

@@ -7,6 +7,10 @@
         Hash,
         Newline,
         Whitespace,
+        LBracket,   // [
+        RBracket,   // ]
+        LParen,     // (
+        RParen,     // )
         Other,
         EndOfText
     }

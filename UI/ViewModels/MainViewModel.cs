@@ -85,25 +85,36 @@ namespace FLandT_laba1_ver4.UI.ViewModels
             SecondCount = 0;
             IsOk = true;
 
-            var lexer = new LexRunner(InputText);
+            //LexRunner lexer = new (InputText);
 
-            while (lexer.NextToken(out var tok))
-            {
-                if (tok.Type == TokenType.BinaryWord) FirstCount++;
-                else if (tok.Type == TokenType.LetterWord) SecondCount++;
+            //while (lexer.NextToken(out var tok))
+            //{
+            //    if (tok.Type == TokenType.BinaryWord) FirstCount++;
+            //    else if (tok.Type == TokenType.LetterWord) SecondCount++;
 
-                if (tok.Type is TokenType.Whitespace or TokenType.Comment)
-                    continue;
+            //    if (tok.Type is TokenType.Whitespace or TokenType.Comment)
+            //        continue;
 
-                RecognizedTokens.Add(tok);
-            }
+            //    RecognizedTokens.Add(tok);
+            //}
+            var ts = new Parser.LexerTokenStream(InputText);
+            var parser = new Parser.PredictiveParser(ts);
+            var parsed = parser.ParseAll();
 
-            IsOk = !lexer.SyntaxError;
+            IsOk = /*!lexer.SyntaxError &&*/ parsed && !ts.HadLexError;
 
             var sb = new StringBuilder();
             sb.AppendLine(IsOk ? "Статус: OK" : "Статус: Ошибка");
             sb.AppendLine($"(011)*000(001)*: {FirstCount}");
             sb.AppendLine("[a,b,c,d]+ (2-3=ac): " + SecondCount);
+
+            if (!IsOk)
+            {
+                if (parser.HasError && !string.IsNullOrWhiteSpace(parser.Error))
+                    sb.AppendLine(parser.Error);
+                else if (/*lexer.SyntaxError ||*/ ts.HadLexError)
+                    sb.AppendLine("Лексическая ошибка во входных данных.");
+            }
 
             ResultText = sb.ToString();
         }

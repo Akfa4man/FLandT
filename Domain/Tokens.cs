@@ -1,7 +1,19 @@
 ﻿namespace FLandT_laba1_ver4.Domain
 {
     // Unknown — на случай, если захотим явно сигналить про непонятные штуки.
-    public enum TokenType { BinaryWord, LetterWord, Comment, Whitespace, Unknown }
+    public enum TokenType
+    {
+        BinaryWord, 
+        LetterWord, 
+        Comment, 
+        Whitespace,
+        LBracket,   // [
+        RBracket,   // ]
+        LParen,     // (
+        RParen,     // )
+        EndOfText,
+        Unknown
+    }
 
     // Позиция в тексте.
     public sealed class Position

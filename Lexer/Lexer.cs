@@ -117,6 +117,29 @@ namespace FLandT_laba1_ver4.Lexer
                 return true;
             }
 
+            // Скобочные токены
+            if (sym.Kind is CharKind.LBracket or CharKind.RBracket
+                                 or CharKind.LParen or CharKind.RParen)
+            {
+                var type = sym.Kind switch
+                {
+                    CharKind.LBracket => TokenType.LBracket,
+                    CharKind.RBracket => TokenType.RBracket,
+                    CharKind.LParen => TokenType.LParen,
+                    CharKind.RParen => TokenType.RParen,
+                    _ => TokenType.Unknown
+                };
+                token = new Token
+                {
+                    Index = _indexCounter++,
+                    Value = sym.Value.ToString(),
+                    Type = type,
+                    Line = startPos.Line,
+                    Column = startPos.Column
+                };
+                return true;
+            }
+
             // Любой прочий символ — ошибка алфавита
             SyntaxError = true;
             return false;
