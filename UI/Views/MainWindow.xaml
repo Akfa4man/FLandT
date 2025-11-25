@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:FLandT_laba1_ver4.UI.ViewModels"
+        xmlns:uiTree="clr-namespace:FLandT_laba1_ver4.UI"
         mc:Ignorable="d"
         Title="ЛР1 - Лексический анализатор (Вариант 20)"
         Width="1100" Height="720"
@@ -94,27 +95,21 @@
             <!-- Разделитель -->
             <Border Grid.Column="1" Grid.RowSpan="3" Width="1" Background="#EEE"/>
 
-            <!-- Таблица распознанных токенов -->
+            <!-- Дерево синтаксического разбора -->
             <StackPanel Grid.Column="2" Grid.Row="0">
-                <TextBlock Text="Распознанные токены:" Margin="0,0,0,6"/>
-                <DataGrid ItemsSource="{Binding RecognizedTokens}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          HeadersVisibility="Column"
-                          GridLinesVisibility="All"
-                          FontFamily="Consolas, Courier New, monospace"
-                          FontSize="13">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="40"/>
-                        <DataGridTextColumn Header="Токен" Binding="{Binding Value}" Width="*"/>
-                        <DataGridTextColumn Header="Тип" Binding="{Binding TypeName}" Width="200"/>
-                        <DataGridTextColumn Header="Строка" Binding="{Binding Line}" Width="70"/>
-                        <DataGridTextColumn Header="Столбец" Binding="{Binding Column}" Width="80"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                <TextBlock Text="Дерево разбора:" Margin="0,0,0,6"/>
+                <TreeView ItemsSource="{Binding AstItems}">
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type uiTree:TreeItem}"
+                                      ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding Text}"
+                           FontFamily="Consolas, Courier New, monospace"
+                           FontSize="13"/>
+                        </HierarchicalDataTemplate>
+                    </TreeView.Resources>
+                </TreeView>
             </StackPanel>
+
 
             <!-- Статус (OK/Ошибка) и счетчики -->
             <Border Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="3" CornerRadius="8" Padding="12" BorderThickness="1">

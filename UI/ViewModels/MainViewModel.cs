@@ -1,16 +1,17 @@
 ﻿using FLandT_laba1_ver4.Common;
 using FLandT_laba1_ver4.Domain;
 using FLandT_laba1_ver4.Services;
+using FLandT_laba1_ver4.Parser;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text;
-using LexRunner = FLandT_laba1_ver4.Lexer.Lexer;
 
 namespace FLandT_laba1_ver4.UI.ViewModels
 {
     public sealed class MainViewModel : INotifyPropertyChanged
     {
+        // Ввод пользователя (никакого автозапуска)
         private string _inputText = string.Empty;
         public string InputText
         {
@@ -23,6 +24,10 @@ namespace FLandT_laba1_ver4.UI.ViewModels
             }
         }
 
+        // Дерево разбора для TreeView
+        public ObservableCollection<TreeItem> AstItems { get; } = new();
+
+        // На всякий случай оставлен список токенов (можно не использовать в ЛР3)
         public ObservableCollection<Token> RecognizedTokens { get; } = new();
 
         private string _resultText = string.Empty;
@@ -71,7 +76,8 @@ namespace FLandT_laba1_ver4.UI.ViewModels
             _inputText = string.Empty;
             OnPropertyChanged(nameof(InputText));
 
-            RecognizedTokens.Clear();
+            AstItems.Clear();
+            RecognizedTokens.Clear(); // на всякий
             FirstCount = 0;
             SecondCount = 0;
             IsOk = true;
@@ -80,28 +86,29 @@ namespace FLandT_laba1_ver4.UI.ViewModels
 
         private void RunCore()
         {
+            AstItems.Clear();
             RecognizedTokens.Clear();
             FirstCount = 0;
             SecondCount = 0;
             IsOk = true;
 
-            //LexRunner lexer = new (InputText);
-
-            //while (lexer.NextToken(out var tok))
-            //{
-            //    if (tok.Type == TokenType.BinaryWord) FirstCount++;
-            //    else if (tok.Type == TokenType.LetterWord) SecondCount++;
-
-            //    if (tok.Type is TokenType.Whitespace or TokenType.Comment)
-            //        continue;
-
-            //    RecognizedTokens.Add(tok);
-            //}
-            var ts = new Parser.LexerTokenStream(InputText);
-            var parser = new Parser.PredictiveParser(ts);
+            var ts = new LexerTokenStream(InputText);
+            var parser = new PredictiveParser(ts);
             var parsed = parser.ParseAll();
 
-            IsOk = /*!lexer.SyntaxError &&*/ parsed && !ts.HadLexError;
+            if (parsed && parser.Root is not null)
+            {
+                var toTree = new AstToTreeVisitor();
+                var treeRoot = parser.Root.Accept(toTree);
+                AstItems.Add(treeRoot);
+
+                // parser.Root теперь AstNode, CountByAst тоже работает с AstNode
+                CountByAst(parser.Root, ref _firstCount, ref _secondCount);
+                OnPropertyChanged(nameof(FirstCount));
+                OnPropertyChanged(nameof(SecondCount));
+            }
+
+            IsOk = parsed && !ts.HadLexError;
 
             var sb = new StringBuilder();
             sb.AppendLine(IsOk ? "Статус: OK" : "Статус: Ошибка");
@@ -112,11 +119,55 @@ namespace FLandT_laba1_ver4.UI.ViewModels
             {
                 if (parser.HasError && !string.IsNullOrWhiteSpace(parser.Error))
                     sb.AppendLine(parser.Error);
-                else if (/*lexer.SyntaxError ||*/ ts.HadLexError)
+                else if (ts.HadLexError)
                     sb.AppendLine("Лексическая ошибка во входных данных.");
             }
 
             ResultText = sb.ToString();
+        }
+
+        // Было IAstNode, теперь базовый AstNode – интерфейс мы убрали
+        private static void CountByAst(AstNode node, ref int bin, ref int let)
+        {
+            switch (node)
+            {
+                case BBinaryNode:
+                    // B → <1>
+                    bin++;
+                    break;
+
+                case PLetterNode:
+                    // P → <2>
+                    let++;
+                    break;
+
+                case C_BNode cB:
+                    // C → B
+                    CountByAst(cB.B, ref bin, ref let);
+                    break;
+
+                case C_PNode cP:
+                    // C → P
+                    CountByAst(cP.P, ref bin, ref let);
+                    break;
+
+                case BBracketNode bBr:
+                    // B → [ P P ]
+                    CountByAst(bBr.P1, ref bin, ref let);
+                    CountByAst(bBr.P2, ref bin, ref let);
+                    break;
+
+                case PParenNode pPar:
+                    // P → ( B B )
+                    CountByAst(pPar.B1, ref bin, ref let);
+                    CountByAst(pPar.B2, ref bin, ref let);
+                    break;
+
+                // Скобки (LBracketNode, RBracketNode, LParenNode, RParenNode) и другие
+                // узлы нас не интересуют — для счётчиков их можно просто игнорировать.
+                default:
+                    break;
+            }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
