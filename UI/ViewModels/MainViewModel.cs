@@ -11,7 +11,7 @@ namespace FLandT_laba1_ver4.UI.ViewModels
 {
     public sealed class MainViewModel : INotifyPropertyChanged
     {
-        // Ввод пользователя (никакого автозапуска)
+        // Ввод пользователя
         private string _inputText = string.Empty;
         public string InputText
         {
@@ -27,7 +27,7 @@ namespace FLandT_laba1_ver4.UI.ViewModels
         // Дерево разбора для TreeView
         public ObservableCollection<TreeItem> AstItems { get; } = new();
 
-        // На всякий случай оставлен список токенов (можно не использовать в ЛР3)
+        // На всякий случай оставлен список токенов
         public ObservableCollection<Token> RecognizedTokens { get; } = new();
 
         private string _resultText = string.Empty;
@@ -77,7 +77,7 @@ namespace FLandT_laba1_ver4.UI.ViewModels
             OnPropertyChanged(nameof(InputText));
 
             AstItems.Clear();
-            RecognizedTokens.Clear(); // на всякий
+            RecognizedTokens.Clear();
             FirstCount = 0;
             SecondCount = 0;
             IsOk = true;
@@ -86,6 +86,7 @@ namespace FLandT_laba1_ver4.UI.ViewModels
 
         private void RunCore()
         {
+            // Сбрасываем состояние перед новым запуском
             AstItems.Clear();
             RecognizedTokens.Clear();
             FirstCount = 0;
@@ -96,19 +97,22 @@ namespace FLandT_laba1_ver4.UI.ViewModels
             var parser = new PredictiveParser(ts);
             var parsed = parser.ParseAll();
 
+            UniqueIdentifierChecker? sem = null;
+
             if (parsed && parser.Root is not null)
             {
                 var toTree = new AstToTreeVisitor();
                 var treeRoot = parser.Root.Accept(toTree);
                 AstItems.Add(treeRoot);
 
-                // parser.Root теперь AstNode, CountByAst тоже работает с AstNode
                 CountByAst(parser.Root, ref _firstCount, ref _secondCount);
                 OnPropertyChanged(nameof(FirstCount));
                 OnPropertyChanged(nameof(SecondCount));
-            }
 
-            IsOk = parsed && !ts.HadLexError;
+                sem = new UniqueIdentifierChecker();
+                sem.Check(parser.Root);
+            }
+            IsOk = parsed && !ts.HadLexError && (sem is null || !sem.HasError);
 
             var sb = new StringBuilder();
             sb.AppendLine(IsOk ? "Статус: OK" : "Статус: Ошибка");
@@ -118,15 +122,22 @@ namespace FLandT_laba1_ver4.UI.ViewModels
             if (!IsOk)
             {
                 if (parser.HasError && !string.IsNullOrWhiteSpace(parser.Error))
+                {
                     sb.AppendLine(parser.Error);
+                }
                 else if (ts.HadLexError)
+                {
                     sb.AppendLine("Лексическая ошибка во входных данных.");
+                }
+                else if (sem is not null && sem.HasError && !string.IsNullOrWhiteSpace(sem.Error))
+                {
+                    sb.AppendLine(sem.Error);
+                }
             }
 
             ResultText = sb.ToString();
         }
 
-        // Было IAstNode, теперь базовый AstNode – интерфейс мы убрали
         private static void CountByAst(AstNode node, ref int bin, ref int let)
         {
             switch (node)
@@ -163,8 +174,6 @@ namespace FLandT_laba1_ver4.UI.ViewModels
                     CountByAst(pPar.B2, ref bin, ref let);
                     break;
 
-                // Скобки (LBracketNode, RBracketNode, LParenNode, RParenNode) и другие
-                // узлы нас не интересуют — для счётчиков их можно просто игнорировать.
                 default:
                     break;
             }
