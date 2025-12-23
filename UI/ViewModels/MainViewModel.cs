@@ -1,7 +1,8 @@
 ﻿using FLandT_laba1_ver4.Common;
 using FLandT_laba1_ver4.Domain;
-using FLandT_laba1_ver4.Services;
 using FLandT_laba1_ver4.Parser;
+using FLandT_laba1_ver4.Parser.Translator;
+using FLandT_laba1_ver4.Services;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -86,34 +87,87 @@ namespace FLandT_laba1_ver4.UI.ViewModels
 
         private void RunCore()
         {
-            // Сбрасываем состояние перед новым запуском
             AstItems.Clear();
-            RecognizedTokens.Clear();
             FirstCount = 0;
             SecondCount = 0;
             IsOk = true;
 
+            // Лексика → поток токенов
             var ts = new LexerTokenStream(InputText);
+
+            //  Синтаксис → AST
             var parser = new PredictiveParser(ts);
             var parsed = parser.ParseAll();
 
             UniqueIdentifierChecker? sem = null;
+            TranslationResult? trRes = null;
 
             if (parsed && parser.Root is not null)
             {
-                var toTree = new AstToTreeVisitor();
-                var treeRoot = parser.Root.Accept(toTree);
-                AstItems.Add(treeRoot);
 
-                CountByAst(parser.Root, ref _firstCount, ref _secondCount);
-                OnPropertyChanged(nameof(FirstCount));
-                OnPropertyChanged(nameof(SecondCount));
+                var toTree = new AstToTreeVisitor();
+                AstItems.Add(parser.Root.Accept(toTree));
+
+                void Count(AstNode n, ref int bin, ref int let)
+                {
+                    switch (n)
+                    {
+                        case BBinaryNode:
+                            bin++;
+                            return;
+
+                        case PLetterNode:
+                            let++;
+                            return;
+
+                        case C_BNode cB:
+                            Count(cB.B, ref bin, ref let);
+                            return;
+
+                        case C_PNode cP:
+                            Count(cP.P, ref bin, ref let);
+                            return;
+
+                        case BBracketNode bBr:
+                            Count(bBr.P1, ref bin, ref let);
+                            Count(bBr.P2, ref bin, ref let);
+                            return;
+
+                        case PParenNode pPar:
+                            Count(pPar.B1, ref bin, ref let);
+                            Count(pPar.B2, ref bin, ref let);
+                            return;
+
+                        case LBracketNode:
+                        case RBracketNode:
+                        case LParenNode:
+                        case RParenNode:
+                            return;
+                    }
+                }
+
+                int bin = 0, let = 0;
+                Count(parser.Root, ref bin, ref let);
+                FirstCount = bin;
+                SecondCount = let;
 
                 sem = new UniqueIdentifierChecker();
                 sem.Check(parser.Root);
-            }
-            IsOk = parsed && !ts.HadLexError && (sem is null || !sem.HasError);
 
+                if (!ts.HadLexError && !parser.HasError && !sem.HasError)
+                {
+                    var tr = new AstTranslationVisitor();
+                    trRes = tr.Translate(parser.Root);
+                }
+            }
+
+            // Итоговый статус
+            IsOk = parsed
+                   && !ts.HadLexError
+                   && !parser.HasError
+                   && !(sem?.HasError ?? false);
+
+            // Отчёт
             var sb = new StringBuilder();
             sb.AppendLine(IsOk ? "Статус: OK" : "Статус: Ошибка");
             sb.AppendLine($"(011)*000(001)*: {FirstCount}");
@@ -121,18 +175,18 @@ namespace FLandT_laba1_ver4.UI.ViewModels
 
             if (!IsOk)
             {
-                if (parser.HasError && !string.IsNullOrWhiteSpace(parser.Error))
-                {
-                    sb.AppendLine(parser.Error);
-                }
-                else if (ts.HadLexError)
-                {
+                if (ts.HadLexError)
                     sb.AppendLine("Лексическая ошибка во входных данных.");
-                }
-                else if (sem is not null && sem.HasError && !string.IsNullOrWhiteSpace(sem.Error))
-                {
+                else if (parser.HasError && !string.IsNullOrWhiteSpace(parser.Error))
+                    sb.AppendLine(parser.Error);
+                else if (sem?.HasError == true && !string.IsNullOrWhiteSpace(sem.Error))
                     sb.AppendLine(sem.Error);
-                }
+            }
+            else if (trRes is not null)
+            {
+                sb.AppendLine();
+                sb.AppendLine("Выходной текст:");
+                sb.AppendLine(trRes.Output);
             }
 
             ResultText = sb.ToString();
